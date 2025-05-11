@@ -1,0 +1,15 @@
+# Should flag this as vulnerable
+md_content = """[Click me](javascript:alert('XSS'))"""
+render_markdown(md_content)
+
+# Should flag this as vulnerable
+filename = "../../../etc/passwd"
+read_file(filename)
+
+# Should flag this as vulnerable
+malicious_code = """import os; os.system('rm -rf /')"""
+execute_code(malicious_code)
+
+# Should flag this as vulnerable
+target = "http://evil.com/phishing"
+redirect(target)
