@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""
+INTENTIONALLY VULNERABLE CODE - FOR SECURITY TESTING ONLY
+This simulates an LLM application backend with multiple security flaws
+"""
+
+import os
+import sys
+import subprocess
+import json
+import pickle
+import sqlite3
+import yaml  # pyyaml
+from flask import Flask, request, jsonify
+from werkzeug.utils import secure_filename
+import markdown
+import xml.etree.ElementTree as ET
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+
+# Database setup
+def init_db():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT,
+            password TEXT,
+            api_key TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# Vulnerable function 1: SQL Injection
+@app.route('/search_user', methods=['GET'])
+def search_user():
+    username = request.args.get('username')
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Critical SQL injection vulnerability
+    query = f"SELECT * FROM users WHERE username = '{username}'"
+    cursor.execute(query)
+    
+    result = cursor.fetchall()
+    conn.close()
+    return jsonify(result)
+
+# Vulnerable function 2: Command Injection
+@app.route('/ping', methods=['GET'])
+def ping_host():
+    host = request.args.get('host')
+    
+    # Dangerous command injection
+    cmd = f"ping -c 4 {host}"
+    output = subprocess.check_output(cmd, shell=True)
+    
+    return output.decode('utf-8')
+
+# Vulnerable function 3: Unsafe Deserialization
+@app.route('/load_config', methods=['POST'])
+def load_config():
+    config_data = request.data
+    
+    # Dangerous pickle deserialization
+    config = pickle.loads(config_data)
+    return jsonify({"status": "loaded", "config": str(config)})
+
+# Vulnerable function 4: XXE Injection
+@app.route('/parse_xml', methods=['POST'])
+def parse_xml():
+    xml_data = request.data
+    
+    # XXE vulnerability
+    root = ET.fromstring(xml_data)
+    return jsonify({"root_tag": root.tag})
+
+# Vulnerable function 5: Template Injection
+@app.route('/render_markdown', methods=['POST'])
+def render_markdown():
+    md_content = request.json.get('content', '')
+    
+    # Markdown injection could lead to XSS
+    html = markdown.markdown(md_content)
+    return html
+
+# Vulnerable function 6: Path Traversal
+@app.route('/read_file', methods=['GET'])
+def read_file():
+    filename = request.args.get('file')
+    
+    # Path traversal vulnerability
+    with open(filename, 'r') as f:
+        content = f.read()
+    
+    return content
+
+# Vulnerable function 7: Insecure YAML Loading
+@app.route('/load_yaml', methods=['POST'])
+def load_yaml():
+    yaml_data = request.data
+    
+    # Dangerous full_load
+    data = yaml.full_load(yaml_data)
+    return jsonify(data)
+
+# Vulnerable function 8: Dynamic Code Execution
+@app.route('/execute', methods=['POST'])
+def execute_code():
+    code = request.json.get('code', '')
+    
+    # Dangerous dynamic code execution
+    exec(code)
+    return jsonify({"status": "executed"})
+
+# Vulnerable function 9: SSRF
+@app.route('/fetch_url', methods=['GET'])
+def fetch_url():
+    url = request.args.get('url')
+    
+    # SSRF vulnerability
+    cmd = f"curl {url}"
+    output = subprocess.check_output(cmd, shell=True)
+    
+    return output
+
+# Vulnerable function 10: Open Redirect
+@app.route('/redirect', methods=['GET'])
+def redirect():
+    target = request.args.get('target')
+    
+    # Open redirect vulnerability
+    return f'<meta http-equiv="refresh" content="0; url={target}">'
+
+if __name__ == '__main__':
+    app.run(debug=True)
